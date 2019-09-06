@@ -2,6 +2,48 @@ import numpy as np
 from numba import njit
 
 
+def find_peaks(*,
+               image,
+               kernel,
+               noise=None,
+               noise_thresh=1.0,
+               thresh=None,
+               max_peaks=None):
+    """
+    run the peak finder
+
+    Parameters
+    ----------
+    image: 2-d array
+        The image in which to find peaks
+    kernel: 2-d array
+        Kernel by which to convolve the image
+    thresh: float
+        An absolute threshold above which peaks must be to be detected.
+        You can also specify noise and noise_threshold, see below.
+    noise: float
+        The noise level of the image, to be combined with noise_thresh
+        to make an absolute threshold
+    noise_thresh: float
+        if noise is sent, the absolute threshold will
+        be noise*noise_thresh.  Default 1.0
+    max_peaks: int
+        Maximum number of peaks that can be detected; the
+        default is the number of pixels in the image
+    """
+
+    finder = PeakFinder(
+        image=image,
+        kernel=kernel,
+        noise=noise,
+        noise_thresh=noise_thresh,
+        thresh=thresh,
+        max_peaks=max_peaks,
+    )
+    finder.go()
+    return finder.objects
+
+
 class PeakFinder(object):
     def __init__(self,
                  *,
@@ -64,7 +106,7 @@ class PeakFinder(object):
 
         objects = self.get_object_struct(self.max_peaks)
 
-        self.npeaks = find_peaks(
+        self.npeaks = find_peaks_in_convolved_image(
             self.convolved_image,
             self.thresh,
             objects['row'],
@@ -106,7 +148,7 @@ class PeakFinder(object):
 
 
 @njit
-def find_peaks(image, thresh, peakrows, peakcols):
+def find_peaks_in_convolved_image(image, thresh, peakrows, peakcols):
     """
     find peaks by looking for points around which all values
     are lower

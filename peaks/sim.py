@@ -169,6 +169,44 @@ class Sim(dict):
         )
 
 
+class GridSim(Sim):
+    def make_image(self):
+        self._setup_grid()
+        return super(GridSim, self).make_image()
+
+    def get_position(self):
+        row = self._grid_rows[self._grid_counter]
+        col = self._grid_cols[self._grid_counter]
+        self._grid_counter += 1
+        return row, col
+
+    def _setup_grid(self):
+        # size of each dimension
+        ngrid = int(np.sqrt(self.nobj))
+
+        ntot = ngrid**2
+        if ntot < self.nobj:
+            ngrid += 1
+
+        row_spacing = int(self.dims[0]/(ngrid+1))
+        col_spacing = int(self.dims[1]/(ngrid+1))
+
+        self._grid_rows = np.zeros(ngrid**2)
+        self._grid_cols = np.zeros(ngrid**2)
+
+        itot = 0
+        for irow in range(ngrid):
+            row = (irow+1)*row_spacing
+            for icol in range(ngrid):
+                col = (icol+1)*row_spacing
+
+                self._grid_rows[itot] = row
+                self._grid_cols[itot] = col
+                itot += 1
+
+        self._grid_counter = 0
+
+
 def gauss_kernel(*, fwhm, dims):
     """
     Create an gaussian kernel image

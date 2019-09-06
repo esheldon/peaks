@@ -1,4 +1,5 @@
 import numpy as np
+from .moments import fwhm_to_T
 
 
 class Sim(dict):
@@ -7,16 +8,20 @@ class Sim(dict):
                  rng,
                  dims,
                  nobj,
+                 psf_fwhm=0.9,
+                 scale=0.263,
                  border=0,
-                 noise=0.01,
+                 noise=1,
                  shape_noise=0.2,
-                 fwhm_range=(0.9, 3.0),
+                 fwhm_range=(0.0, 2.5),
                  flux_range=(10.0, 100.0)):
 
         self.rng = rng
         self.dims = dims
+        self.scale = float(scale)
         self.border = int(border)
         self.nobj = int(nobj)
+        self.psf_fwhm = float(psf_fwhm)
         self.shape_noise = float(shape_noise)
         self.fwhm_range = fwhm_range
         self.flux_range = flux_range
@@ -26,6 +31,9 @@ class Sim(dict):
         assert len(fwhm_range) == 2
         assert len(flux_range) == 2
 
+        self._set_psf()
+        self._set_jacobian()
+
     def make_image(self):
         """
         make an image
@@ -33,42 +41,68 @@ class Sim(dict):
 
         image = np.zeros(self.dims)
 
-        object_data = self.get_object_struct(n=self.nobj)
+        objects = self.get_object_struct(n=self.nobj)
 
         for i in range(self.nobj):
-            this_image, odata = self.get_object_image()
+            this_image, gm = self.get_object_image()
 
             image += this_image
 
-            object_data[i] = odata[0]
+            objects[i] = self._gm_to_data(gm)
 
         image += self.rng.normal(scale=self.noise, size=image.shape)
-        return image, object_data
+        return image, objects
+
+    def _gm_to_data(self, gm):
+        import ngmix
+        o = self.get_object_struct()[0]
+
+        row, col = gm.get_cen()
+        e1, e2, T = gm.get_e1e2T()
+        fwhm = ngmix.moments.T_to_fwhm(T)
+        flux = gm.get_flux()
+
+        o['row'] = row/self.scale
+        o['col'] = col/self.scale
+        o['e1'] = e1
+        o['e2'] = e2
+        o['T'] = T
+        o['fwhm'] = fwhm
+        o['flux'] = flux
+        return o
 
     def get_object_image(self):
         """
         get image of a single object
         """
 
-        odata = self.get_object_data()
-        image = gauss_image(
-            odata['e1'][0],
-            odata['e2'][0],
-            odata['T'][0],
-            odata['flux'][0],
-            self.dims,
-            [odata['row'][0], odata['col'][0]],
-        )
+        gm = self.get_object()
 
-        return image, odata
+        image = gm.make_image(self.dims, jacobian=self.jacobian)
+        return image, gm
 
-    def get_object_data(self):
-        st = self.get_object_struct()
-        st['row'], st['col'] = self.get_position()
-        st['e1'], st['e2'] = self.get_shape()
-        st['T'] = self.get_T()
-        st['flux'] = self.get_flux()
-        return st
+    def get_object(self):
+        import ngmix
+
+        row, col = self.get_position()
+
+        g1, g2 = self.get_shape()
+
+        fwhm = self.get_fwhm()
+        T = ngmix.moments.fwhm_to_T(fwhm)
+
+        flux = self.get_flux()
+
+        pars = [
+            row*self.scale,
+            col*self.scale,
+            g1,
+            g2,
+            T,
+            flux,
+        ]
+        gm0 = ngmix.GMixModel(pars, 'gauss')
+        return gm0.convolve(self.psf)
 
     def get_object_struct(self, n=1):
         dt = [
@@ -76,6 +110,7 @@ class Sim(dict):
             ('col', 'f8'),
             ('e1', 'f8'),
             ('e2', 'f8'),
+            ('fwhm', 'f8'),
             ('T', 'f8'),
             ('flux', 'f8'),
         ]
@@ -94,20 +129,17 @@ class Sim(dict):
 
     def get_shape(self):
         while True:
-            e1, e2 = self.rng.normal(scale=self.shape_noise, size=2)
-            e = np.sqrt(e1**2 + e2**2)
-            if e < 1.0:
+            g1, g2 = self.rng.normal(scale=self.shape_noise, size=2)
+            g = np.sqrt(g1**2 + g2**2)
+            if g < 1.0:
                 break
-        return e1, e2
+        return g1, g2
 
-    def get_T(self):
-        fwhm = self.rng.uniform(
+    def get_fwhm(self):
+        return self.rng.uniform(
             low=self.fwhm_range[0],
             high=self.fwhm_range[1],
         )
-        sigma = fwhm/2.3548200450309493
-        T = 2*sigma**2
-        return T
 
     def get_flux(self):
         return self.rng.uniform(
@@ -115,37 +147,80 @@ class Sim(dict):
             high=self.flux_range[1],
         )
 
+    def _set_psf(self):
+        """
+        set the psf as a gaussian
+        """
+        import ngmix
+        T = ngmix.moments.fwhm_to_T(self.psf_fwhm)
+        pars = [0.0, 0.0, 0.0, 0.0, T, 1.0]
+        self.psf = ngmix.GMixModel(pars, 'gauss')
 
-def gauss_image(e1, e2, T, flux, dims, cen):
+    def _set_jacobian(self):
+        """
+        set the psf as a gaussian
+        """
+        import ngmix
+
+        self.jacobian = ngmix.DiagonalJacobian(
+            row=0,
+            col=0,
+            scale=self.scale,
+        )
+
+
+def gauss_kernel(*, fwhm, dims):
+    """
+    Create an gaussian kernel image
+
+    Parameters
+    ----------
+    fwhm: float
+        gaussian fwhm in pixels
+    dims: sequence
+        The dimensions of the image
+
+    Returns
+    -------
+    image
+    """
+
+    cen = (np.array(dims)-1.0)/2.0
+    return gauss_image(
+        e1=0.0,
+        e2=0.0,
+        fwhm=fwhm,
+        flux=1.0,
+        dims=dims,
+        cen=cen,
+    )
+
+
+def gauss_image(*, e1, e2, fwhm, flux, dims, cen):
     """
     Create an image with the specified gaussian
 
     Parameters
     ----------
+    e1: float
+        gaussian e1
+    e2: float
+        gaussian e2
+    fwhm: float
+        gaussian fwhm in pixels
+    flux: float
+        total flux of image
     dims: sequence
         The dimensions of the image
     cen: sequence
         The center in [row,col]
-    cov: sequence
-        A three element sequence representing the covariance matrix
-        [Irr,Irc,Icc].  Note this only corresponds exactly to the moments of
-        the object for a gaussian model.  For an simple bivariate gaussian, Irr
-        and Icc are sigma1**2 sigma2**2, but using the full matrix allows for
-        other angles of oriention.
-    flux: number, optional
-        The total flux in the image.  Default 1.0.  If None, the image is not
-        normalized.
+
     Returns
     -------
-    Image: 2-d array
-        The returned image is a 2-d numpy array of 8 byte floats.
-    Example
-    -------
-        dims=[41,41]
-        cen=[20,20]
-        cov=[8,2,4] # [Irr,Irc,Icc]
-        im = ogrid_image('gauss',dims,cen,cov)
+    image
     """
+
+    T = fwhm_to_T(fwhm)
 
     Irr = T/2*(1-e1)
     Irc = T/2*e2

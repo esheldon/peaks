@@ -62,27 +62,27 @@ class PeakFinder(object):
         each peak
         """
 
-        rows = np.zeros(self.max_peaks)
-        cols = np.zeros(self.max_peaks)
+        objects = self.get_object_struct(self.max_peaks)
 
         self.npeaks = find_peaks(
             self.convolved_image,
             self.thresh,
-            rows,
-            cols,
+            objects['row'],
+            objects['col'],
         )
-        self.rows = rows[:self.npeaks]
-        self.cols = rows[:self.npeaks]
 
-    def get_peaks(self):
+        self._objects = objects[:self.npeaks]
+
+    @property
+    def objects(self):
         """
         get the row and column arrays holding the peak
         positions
         """
-        if not hasattr(self, 'rows'):
+        if not hasattr(self, '_objects'):
             raise RuntimeError('run go() first')
 
-        return self.rows, self.cols
+        return self._objects
 
     def _set_convolved_image(self):
         """
@@ -96,6 +96,13 @@ class PeakFinder(object):
             self.kernel,
             mode='same',
         )
+
+    def get_object_struct(self, n=1):
+        dt = [
+            ('row', 'f8'),
+            ('col', 'f8'),
+        ]
+        return np.zeros(n, dtype=dt)
 
 
 @njit

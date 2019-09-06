@@ -4,4 +4,3 @@ def fwhm_to_T(fwhm):
     """
     sigma = fwhm/2.3548200450309493
     return 2*sigma**2
-

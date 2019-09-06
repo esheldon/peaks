@@ -10,7 +10,7 @@ from .sim import (
     gauss_image,
     gauss_kernel,
 )
-from . import moments
-from .moments import fwhm_to_T
+from . import conversions
+from .conversions import fwhm_to_T
 
 from . import vis

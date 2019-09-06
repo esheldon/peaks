@@ -1,5 +1,5 @@
 import numpy as np
-from .moments import fwhm_to_T
+from .conversions import fwhm_to_T
 
 
 class Sim(dict):

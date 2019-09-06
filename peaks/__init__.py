@@ -5,6 +5,10 @@ from .peak_finding import (
     PeakFinder,
     find_peaks,
 )
+from . import measure
+from .measure import (
+    Moments,
+)
 from . import sim
 from .sim import (
     gauss_image,

@@ -7,6 +7,7 @@ from .peak_finding import (
 )
 from . import measure
 from .measure import (
+    get_moments,
     Moments,
 )
 from . import sim

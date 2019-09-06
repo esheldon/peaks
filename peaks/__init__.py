@@ -19,3 +19,4 @@ from . import conversions
 from .conversions import fwhm_to_T
 
 from . import vis
+from .vis import view_peaks

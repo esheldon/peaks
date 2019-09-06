@@ -198,7 +198,7 @@ class GridSim(Sim):
         for irow in range(ngrid):
             row = (irow+1)*row_spacing
             for icol in range(ngrid):
-                col = (icol+1)*row_spacing
+                col = (icol+1)*col_spacing
 
                 self._grid_rows[itot] = row
                 self._grid_cols[itot] = col

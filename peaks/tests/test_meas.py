@@ -21,14 +21,10 @@ def test_meas_smoke(seed=12, show=False):
     image, object_data = sim.make_image()
 
     kernel_fwhm_pix = sim.psf_fwhm/sim.scale
-    kernel = peaks.gauss_kernel(
-        fwhm=kernel_fwhm_pix,
-        dims=[25]*2,
-    )
 
     finder = peaks.PeakFinder(
         image=image,
-        kernel=kernel,
+        kernel_fwhm=kernel_fwhm_pix,
         noise=sim.noise,
     )
     finder.go()
@@ -65,14 +61,10 @@ def test_meas(seed=8712):
     image, object_data = sim.make_image()
 
     kernel_fwhm_pix = sim.psf_fwhm/sim.scale
-    kernel = peaks.gauss_kernel(
-        fwhm=kernel_fwhm_pix,
-        dims=[25]*2,
-    )
 
     finder = peaks.PeakFinder(
         image=image,
-        kernel=kernel,
+        kernel_fwhm=kernel_fwhm_pix,
         noise=sim.noise,
     )
     finder.go()

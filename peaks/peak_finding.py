@@ -4,7 +4,8 @@ from numba import njit
 
 def find_peaks(*,
                image,
-               kernel,
+               kernel=None,
+               kernel_fwhm=None,
                noise=None,
                noise_thresh=1.0,
                thresh=None,
@@ -18,6 +19,8 @@ def find_peaks(*,
         The image in which to find peaks
     kernel: 2-d array
         Kernel by which to convolve the image
+    kernel_fwhm: float
+        The code will generate a gaussian kernel with this fwhm in pixels.
     thresh: float
         An absolute threshold above which peaks must be to be detected.
         You can also specify noise and noise_threshold, see below.
@@ -35,6 +38,7 @@ def find_peaks(*,
     finder = PeakFinder(
         image=image,
         kernel=kernel,
+        kernel_fwhm=kernel_fwhm,
         noise=noise,
         noise_thresh=noise_thresh,
         thresh=thresh,
@@ -48,7 +52,8 @@ class PeakFinder(object):
     def __init__(self,
                  *,
                  image,
-                 kernel,
+                 kernel=None,
+                 kernel_fwhm=None,
                  noise=None,
                  noise_thresh=1.0,
                  thresh=None,
@@ -61,7 +66,11 @@ class PeakFinder(object):
         image: 2-d array
             The image in which to find peaks
         kernel: 2-d array
-            Kernel by which to convolve the image
+            Kernel by which to convolve the image.  Send either kernel= or
+            kernel_fwhm=
+        kernel_fwhm: float
+            The code will generate a gaussian kernel with this fwhm in pixels.
+            Send either kernel= or kernel_fwhm=
         thresh: float
             An absolute threshold above which peaks must be to be detected.
             You can also specify noise and noise_threshold, see below.
@@ -77,7 +86,8 @@ class PeakFinder(object):
         """
 
         self.image = image
-        self.kernel = kernel
+        self._set_kernel(kernel=kernel, kernel_fwhm=kernel_fwhm)
+
         if max_peaks is None:
             self.max_peaks = image.size
         else:
@@ -97,6 +107,21 @@ class PeakFinder(object):
             )
 
         self._set_convolved_image()
+
+    def _set_kernel(self, kernel=None, kernel_fwhm=None):
+        if kernel is None and kernel_fwhm is None:
+            raise ValueError('send kernel= or kernel_fwhm=')
+
+        if kernel is not None:
+            kernel = np.array(kernel, copy=False)
+            if len(kernel.shape) != 2:
+                raise ValueError('expected 2d array for kernel, '
+                                 'got %s' % str(kernel.shape))
+        else:
+            from . import sim
+            kernel = sim.gauss_kernel(fwhm=kernel_fwhm)
+
+        self.kernel = kernel
 
     def go(self):
         """

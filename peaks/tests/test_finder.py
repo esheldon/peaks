@@ -1,8 +1,10 @@
 import numpy as np
 import peaks
+import pytest
 
 
-def test_finder_smoke(seed=8712, show=False):
+@pytest.mark.parametrize('kernel_dims', [None, (25, 25)])
+def test_finder_smoke(kernel_dims, seed=8712, show=False):
     """
     make sure the thing runs
     """
@@ -19,7 +21,7 @@ def test_finder_smoke(seed=8712, show=False):
     kernel_fwhm_pix = sim.psf_fwhm/sim.scale
     kernel = peaks.gauss_kernel(
         fwhm=kernel_fwhm_pix,
-        dims=[25]*2,
+        dims=kernel_dims,
     )
 
     finder = peaks.PeakFinder(
@@ -37,7 +39,31 @@ def test_finder_smoke(seed=8712, show=False):
         )
 
 
-def test_finder(seed=31415, show=False):
+def test_finder_autokernel_smoke(seed=8712, show=False):
+    """
+    make sure the thing runs
+    """
+
+    rng = np.random.RandomState(seed)
+
+    dims = [50]*2
+    nobj = 5
+
+    sim = peaks.sim.Sim(rng=rng, dims=dims, nobj=nobj)
+
+    image, object_data = sim.make_image()
+
+    kernel_fwhm_pix = sim.psf_fwhm/sim.scale
+    finder = peaks.PeakFinder(
+        image=image,
+        kernel_fwhm=kernel_fwhm_pix,
+        noise=sim.noise,
+    )
+    finder.go()
+
+
+@pytest.mark.parametrize('kernel_dims', [None, (25, 25)])
+def test_finder(kernel_dims, seed=31415, show=False):
     """
     make sure we recover the right number of objects
     in a grid test
@@ -59,14 +85,10 @@ def test_finder(seed=31415, show=False):
     image, object_data = sim.make_image()
 
     kernel_fwhm_pix = sim.psf_fwhm/sim.scale
-    kernel = peaks.gauss_kernel(
-        fwhm=kernel_fwhm_pix,
-        dims=[25]*2,
-    )
 
     finder = peaks.PeakFinder(
         image=image,
-        kernel=kernel,
+        kernel_fwhm=kernel_fwhm_pix,
         noise=sim.noise,
     )
     finder.go()

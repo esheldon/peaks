@@ -1,5 +1,5 @@
 import numpy as np
-from .conversions import fwhm_to_T
+from .conversions import fwhm_to_T, fwhm_to_sigma
 
 
 class Sim(dict):
@@ -207,7 +207,7 @@ class GridSim(Sim):
         self._grid_counter = 0
 
 
-def gauss_kernel(*, fwhm, dims):
+def gauss_kernel(*, fwhm, dims=None):
     """
     Create an gaussian kernel image
 
@@ -215,13 +215,24 @@ def gauss_kernel(*, fwhm, dims):
     ----------
     fwhm: float
         gaussian fwhm in pixels
-    dims: sequence
-        The dimensions of the image
+    dims: sequence, optional
+        The dimensions of the image.  If not sent, the kernel
+        size will be 2*5*sigma, where sigma is derived
+        from the fwhm
 
     Returns
     -------
     image
     """
+
+    if dims is None:
+        sigma = fwhm_to_sigma(fwhm)
+        dim = int(2*5*sigma)
+        dims = [dim]*2
+
+    if not len(dims) == 2:
+        raise ValueError('dims should be 2 element '
+                         'sequence, got %s' % str(dims))
 
     cen = (np.array(dims)-1.0)/2.0
     return gauss_image(

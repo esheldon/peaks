@@ -74,21 +74,28 @@ class Moments(object):
                 self.maxrad,
             )
 
-            self._set_moms(objects, output, moms, jac.scale, i)
+            self._set_moms(objects, output, moms, jac, i)
 
         self._result = output
         return output
 
-    def _set_moms(self, objects, output, moms, scale, i):
+    def _set_moms(self, objects, output, moms, jac, i):
         output['flags'][i] = moms['flags']
 
-        output['row'][i] = objects['row'][i]
-        output['col'][i] = objects['col'][i]
+        output['row_orig'][i] = objects['row'][i]
+        output['col_orig'][i] = objects['col'][i]
 
-        output['flux'][i] = moms['flux']*scale**2
+        output['flux'][i] = moms['flux']*jac.scale**2
         output['s2n'][i] = moms['s2n']
 
         if moms['flags'] == 0:
+            pars = moms['pars']
+
+            row_offset, col_offset = pars[0], pars[1]
+            row, col = jac.get_rowcol(row_offset, col_offset)
+            output['row'][i] = row
+            output['col'][i] = col
+
             output['e1'][i] = moms['e'][0]
             output['e1_err'][i] = np.sqrt(moms['e_cov'][0, 0])
             output['e2'][i] = moms['e'][1]
@@ -96,13 +103,15 @@ class Moments(object):
 
             output['T'][i] = moms['T']
             output['T_err'][i] = moms['T_err']
-            output['flux_err'][i] = moms['flux_err']*scale**2
+            output['flux_err'][i] = moms['flux_err']*jac.scale**2
 
     def _get_output_struct(self, n=1):
         dt = [
             ('flags', 'i4'),
             ('row', 'f8'),
             ('col', 'f8'),
+            ('row_orig', 'i4'),
+            ('col_orig', 'i4'),
             ('s2n', 'f8'),
             ('e1', 'f8'),
             ('e1_err', 'f8'),

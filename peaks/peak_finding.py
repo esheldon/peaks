@@ -141,8 +141,8 @@ class PeakFinder(object):
 
     def get_object_struct(self, n=1):
         dt = [
-            ('row', 'f8'),
-            ('col', 'f8'),
+            ('row', 'i4'),
+            ('col', 'i4'),
         ]
         return np.zeros(n, dtype=dt)
 
